@@ -1,0 +1,186 @@
+import flash.display.MovieClip;
+import flash.ui.Keyboard;
+import flash.events.KeyboardEvent;
+import flash.events.Event;
+import flash.utils.Timer;
+import flash.events.TimerEvent;
+import flash.text.TextField;
+import flash.events.MouseEvent; // Import MouseEvent
+
+var leftKeyPressed:Boolean;
+var rightKeyPressed:Boolean;
+var ammo:Array;
+var enemyArray:Array;
+var scoreTxt:TextField;
+var ammoTxt:TextField;
+var nScore:Number;
+var nAmmo:Number;
+var tEnemyTimer:Timer;
+var menuEnd:mcEndScreen;
+
+function shootingGame():void {
+    menuEnd.hideScreen();
+    menuEnd.mcPlayAgain.addEventListener(MouseEvent.CLICK, restartGame);
+    menuEnd.showScreen();
+}
+
+function restartGame(e:Event):void {
+    // Reset game parameters
+    ammo = new Array();
+    enemyArray = new Array();
+    nScore = 0;
+    nAmmo = 20;
+    mcGun.visible = true;
+
+    updateScoreText();
+    updateAmmoText();
+
+    // Add necessary event listeners
+    stage.addEventListener(KeyboardEvent.KEY_DOWN, keyDown);
+    stage.addEventListener(KeyboardEvent.KEY_UP, keyUp);
+    stage.addEventListener(Event.ENTER_FRAME, gameLoop);
+
+    tEnemyTimer = new Timer(1000);
+    tEnemyTimer.addEventListener(TimerEvent.TIMER, addEnemy);
+    tEnemyTimer.start();
+
+    // Hide the end screen
+    menuEnd.hideScreen();
+
+    // Add event listener for playAgain after restarting the game
+    menuEnd.mcPlayAgain.addEventListener(MouseEvent.CLICK, restartGame);
+}
+
+function updateScoreText():void {
+    scoreTxt.text = "Score: " + nScore;
+}
+
+function updateAmmoText():void {
+    ammoTxt.text = "Ammo: " + nAmmo;
+}
+
+function addEnemy(e:TimerEvent):void {
+    var newEnemy:mcEnemy = new mcEnemy();
+    stage.addChild(newEnemy);
+    enemyArray.push(newEnemy);
+}
+
+function gameLoop(e:Event):void {
+    // Left-Right movement control
+    if (leftKeyPressed) {
+        mcGun.x -= 5;
+    }
+    if (rightKeyPressed) {
+        mcGun.x += 5;
+    }
+
+    // Limit the movement of Gun
+    if (mcGun.x < 0) {
+        mcGun.x = 0;
+    }
+    if (mcGun.x > 525) {
+        mcGun.x = 525;
+    }
+
+    checkDeadBullets();
+    checkEnemiesOffScreen();
+    checkBulletHit();
+    checkEndGame();
+}
+
+function checkEndGame():void {
+    if (nAmmo == 0 && ammo.length == 0) {
+        stage.removeEventListener(KeyboardEvent.KEY_UP, keyUp);
+        stage.removeEventListener(KeyboardEvent.KEY_DOWN, keyDown);
+        mcGun.visible = false;
+        tEnemyTimer.stop();
+        for each (var enemy:mcEnemy in enemyArray) {
+            enemy.killEnemy();
+            enemyArray.splice(0, 1);
+        }
+        if (enemyArray.length == 0) {
+            stage.removeEventListener(Event.ENTER_FRAME, gameLoop);
+        }
+        menuEnd.showScreen();
+    }
+}
+
+function checkBulletHit():void {
+    for (var i:int = 0; i < ammo.length; i++) {
+        var currentBullet:mcBullet = ammo[i];
+        for (var j:int = 0; j < enemyArray.length; j++) {
+            var currentEnemy:mcEnemy = enemyArray[j];
+            if (currentBullet.hitTestObject(currentEnemy)) {
+                var newExplosion:mcExplosion = new mcExplosion();
+                stage.addChild(newExplosion);
+                newExplosion.x = currentEnemy.x;
+                newExplosion.y = currentEnemy.y;
+                currentBullet.killBullet();
+                ammo.splice(i, 1);
+                currentEnemy.killEnemy();
+                enemyArray.splice(j, 1);
+                nScore++;
+                updateScoreText();
+            }
+        }
+    }
+}
+
+function checkEnemiesOffScreen():void {
+    for (var i:int = 0; i < enemyArray.length; i++) {
+        var currentEnemy:mcEnemy = enemyArray[i];
+        if (currentEnemy.sDirection == "L" && currentEnemy.x < 0) {
+            enemyArray.splice(i, 1);
+            currentEnemy.killEnemy();
+        }
+        if (currentEnemy.sDirection == "R" && currentEnemy.x > 550) {
+            enemyArray.splice(i, 1);
+            currentEnemy.killEnemy();
+        }
+    }
+}
+
+function checkDeadBullets():void {
+    for (var i:int = 0; i < ammo.length; i++) {
+        var currentBullet:mcBullet = ammo[i];
+        if (currentBullet.y < 0) {
+            ammo.splice(i, 1);
+            currentBullet.killBullet();
+        }
+    }
+}
+
+function keyDown(e:KeyboardEvent):void {
+    if (e.keyCode == 37) {
+        leftKeyPressed = true;
+    }
+    if (e.keyCode == 39) {
+        rightKeyPressed = true;
+    }
+    if (e.keyCode == 32) {
+        if (nAmmo > 0) {
+            nAmmo--;
+            updateAmmoText();
+            shoot();
+        }
+    }
+}
+
+function shoot():void {
+    var newBullet:mcBullet = new mcBullet();
+    stage.addChild(newBullet);
+    newBullet.x = mcGun.x + 12;
+    newBullet.y = mcGun.y + 10;
+    ammo.push(newBullet);
+}
+
+function keyUp(e:KeyboardEvent):void {
+    if (e.keyCode == 37) {
+        leftKeyPressed = false;
+    }
+    if (e.keyCode == 39) {
+        rightKeyPressed = false;
+    }
+}
+
+shootingGame();
